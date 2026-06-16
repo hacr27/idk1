@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smoothie Maker Studio</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0fdf4;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #16a34a;
+            margin-bottom: 5px;
+        }
+
+        p {
+            margin-top: 0;
+            color: #666;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Ingredients Grid */
+        .ingredients-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+        }
+
+        .ingredient {
+            background: #f3f4f6;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: grab;
+            font-size: 2rem;
+            transition: transform 0.2s, background 0.2s;
+            user-select: none;
+        }
+
+        .ingredient:active {
+            cursor: grabbing;
+        }
+
+        .ingredient:hover {
+            transform: scale(1.05);
+            background: #e5e7eb;
+        }
+
+        .ingredient span {
+            display: block;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #4b5563;
+        }
+
+        /* Blender Area */
+        #blender-container {
+            position: relative;
+            width: 200px;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        #blender {
+            width: 160px;
+            height: 220px;
+            border: 6px solid #475569;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.5);
+            transition: background 0.3s;
+        }
+
+        #blender.drag-over {
+            background: #bbf7d0;
+            border-color: #22c55e;
+        }
+
+        #blender-base {
+            width: 190px;
+            height: 40px;
+            background: #334155;
+            border-radius: 8px;
+            margin-top: -4px;
+            z-index: 2;
+        }
+
+        /* Liquid/Contents Inside Blender */
+        #blender-contents {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background-color: transparent;
+            transition: height 0.5s ease, background-color 0.5s ease;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-end;
+            justify-content: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .inside-item {
+            font-size: 1.2rem;
+            margin: 2px;
+            animation: dropIn 0.3s ease-out;
+        }
+
+        @keyframes dropIn {
+            from { transform: translateY(-100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Blender Shaking Animation */
+        .blend-shake {
+            animation: shake 0.1s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* Buttons and Status */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        button {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #16a34a;
+        }
+
+        button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        #reset-btn {
+            background: #ef4444;
+        }
+        #reset-btn:hover {
+            background: #dc2626;
+        }
+
+        #status-board {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #e2e8f0;
+            min-height: 80px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Smoothie Maker Studio</h1>
+    <p>Drag ingredients into the blender to create your custom recipe!</p>
+
+    <div id="game-container">
+        <div class="panel">
+            <h3>Ingredients</h3>
+            <div class="ingredients-grid">
+                <div class="ingredient" draggable="true" data-name="Strawberry" data-color="#f43f5e" data-emoji="🍓">🍓<span>Strawberry</span></div>
+                <div class="ingredient" draggable="true" data-name="Banana" data-color="#fef08a" data-emoji="🍌">🍌<span>Banana</span></div>
+                <div class="ingredient" draggable="true" data-name="Blueberry" data-color="#3b82f6" data-emoji="🫐">🫐<span>Blueberry</span></div>
+                <div class="ingredient" draggable="true" data-name="Spinach" data-color="#22c55e" data-emoji="🥬">🥬<span>Spinach</span></div>
+                <div class="ingredient" draggable="true" data-name="Milk" data-color="#f8fafc" data-emoji="🥛">🥛<span>Milk Base</span></div>
+                <div class="ingredient" draggable="true" data-name="Ice" data-color="#e0f2fe" data-emoji="🧊">🧊<span>Ice Cube</span></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>The Blender</h3>
+            <div id="blender-container">
+                <div id="blender">
+                    <div id="blender-contents"></div>
+                </div>
+                <div id="blender-base"></div>
+            </div>
+
+            <div class="controls">
+                <button id="blend-btn" disabled>Blend Smoothie! ✨</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+
+            <div id="status-board">
+                <strong id="recipe-title">Empty Blender</strong>
+                <div id="recipe-list" style="font-size: 0.9rem; color: #64748b; margin-top: 5px;">Add ingredients to start.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const blender = document.getElementById('blender');
+        const blenderContents = document.getElementById('blender-contents');
+        const blendBtn = document.getElementById('blend-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const recipeTitle = document.getElementById('recipe-title');
+        const recipeList = document.getElementById('recipe-list');
+        const ingredients = document.querySelectorAll('.ingredient');
+
+        let currentIngredients = [];
+        let isBlended = false;
+
+        // Color blending helper function
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function averageColors(colorArray) {
+            if (colorArray.length === 0) return 'transparent';
+            let r = 0, g = 0, b = 0;
+            colorArray.forEach(color => {
+                const rgb = hexToRgb(color);
+                r += rgb.r;
+                g += rgb.g;
+                b += rgb.b;
+            });
+            return `rgb(${Math.round(r/colorArray.length)}, ${Math.round(g/colorArray.length)}, ${Math.round(b/colorArray.length)})`;
+        }
+
+        // Drag and Drop Logic
+        ingredients.forEach(ing => {
+            ing.addEventListener('dragstart', (e) => {
+                if (isBlended) {
+                    e.preventDefault();
+                    return;
+                }
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    name: ing.dataset.name,
+                    color: ing.dataset.color,
+                    emoji: ing.dataset.emoji
+                }));
+            });
+        });
+
+        blender.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (!isBlended) blender.classList.add('drag-over');
+        });
+
+        blender.addEventListener('dragleave', () => {
+            blender.classList.remove('drag-over');
+        });
+
+        blender.addEventListener('drop', (e) => {
+            e.preventDefault();
+            blender.classList.remove('drag-over');
+            if (isBlended) return;
+
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            
+            if (currentIngredients.length < 8) {
+                currentIngredients.push(data);
+                updateBlenderVisuals();
+            } else {
+                alert("Blender is completely full!");
+            }
+        });
+
+        function updateBlenderVisuals() {
+            // Update liquid level based on items
+            const fillPercentage = Math.min(currentIngredients.length * 12.5, 100);
+            blenderContents.style.height = `${fillPercentage}%`;
+
+            // Before blending, show distinct item emojis
+            blenderContents.innerHTML = '';
+            currentIngredients.forEach(item => {
+                const span = document.createElement('span');
+                span.className = 'inside-item';
+                span.textContent = item.emoji;
+                blenderContents.appendChild(span);
+            });
+
+            // Update recipe description list
+            if (currentIngredients.length > 0) {
+                blendBtn.disabled = false;
+                recipeTitle.textContent = "Mixing Pot...";
+                const names = currentIngredients.map(i => i.name);
+                recipeList.textContent = [...new Set(names)].join(' + ');
+            } else {
+                blendBtn.disabled = true;
+                recipeTitle.textContent = "Empty Blender";
+                recipeList.textContent = "Add ingredients to start.";
+            }
+        }
+
+        // Action: Blend!
+        blendBtn.addEventListener('click', () => {
+            if (currentIngredients.length === 0 || isBlended) return;
+
+            isBlended = true;
+            blendBtn.disabled = true;
+            
+            // Add shaking animation to the whole blender container
+            const container = document.getElementById('blender-container');
+            container.classList.add('blend-shake');
+
+            recipeTitle.textContent = "Blending... 🌪️";
+
+            setTimeout(() => {
+                // Stop shaking
+                container.classList.remove('blend-shake');
+                
+                // Clear separate emojis and turn into solid mixed liquid color
+                blenderContents.innerHTML = '';
+                const colors = currentIngredients.map(i => i.color);
+                blenderContents.style.backgroundColor = averageColors(colors);
+
+                // Determine smoothie name outcome
+                evaluateSmoothie();
+            }, 1500);
+        });
+
+        function evaluateSmoothie() {
+            const names = currentIngredients.map(i => i.name);
+            let finalName = "Mystery Blend";
+
+            if (names.includes('Strawberry') && names.includes('Banana')) {
+                finalName = "Classic Strawberry Banana Twist! 🍓🍌";
+            } else if (names.includes('Spinach') && names.includes('Banana')) {
+                finalName = "The Lean Green Monster 🥬🍌";
+            } else if (names.includes('Blueberry') && names.includes('Strawberry')) {
+                finalName = "Antioxidant Berry Blast 🫐🍓";
+            } else if (names.every(n => n === 'Milk' || n === 'Ice')) {
+                finalName = "Just Chilled Milk? 🥛❄️";
+            } else if (names.includes('Spinach') && names.length === 1) {
+                finalName = "Pureed Grass Soup 🥬";
+            } else if (currentIngredients.length >= 6) {
+                finalName = "The Ultimate 'Everything' Smoothie! 🌈";
+            } else {
+                finalName = `Custom ${names[0] || 'Fruit'} Fusion 🥤`;
+            }
+
+            recipeTitle.textContent = finalName;
+            recipeList.textContent = "Delicious! Click Reset to make another one.";
+        }
+
+        // Action: Reset
+        resetBtn.addEventListener('click', () => {
+            currentIngredients = [];
+            isBlended = false;
+            blenderContents.style.height = '0%';
+            blenderContents.style.backgroundColor = 'transparent';
+            blenderContents.innerHTML = '';
+            updateBlenderVisuals();
+        });
+    </script>
+</body>
+</html>
